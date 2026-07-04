@@ -46,7 +46,10 @@ assert.ok(singbox.outbounds.some((outbound) => outbound.type === 'vmess'));
 assert.equal(singbox.dns.servers[0].type, 'https');
 assert.equal(singbox.dns.servers[0].server, '1.1.1.1');
 assert.equal(singbox.dns.servers[0].address, undefined);
+assert.ok(singbox.dns.servers[0].detour);
+assert.equal(singbox.dns.servers[1].type, 'local');
 assert.equal(singbox.route.auto_detect_interface, true);
+assert.equal(singbox.route.default_domain_resolver, 'dns-local');
 
 const secret = 'this-is-a-very-secret-key';
 const token = await encryptPayload({ nodes: expanded.nodes }, secret);

@@ -403,6 +403,7 @@ function renderSingBox(nodes) {
   if (!outbounds.length) {
     throw new Error('没有可导出为 Sing-box 的节点');
   }
+  const outboundTags = outbounds.map((outbound) => outbound.tag);
 
   return JSON.stringify(
     {
@@ -415,8 +416,14 @@ function renderSingBox(nodes) {
             tag: 'dns-remote',
             type: 'https',
             server: '1.1.1.1',
+            detour: outboundTags[0],
+          },
+          {
+            tag: 'dns-local',
+            type: 'local',
           },
         ],
+        final: 'dns-remote',
       },
       inbounds: [
         {
@@ -432,12 +439,12 @@ function renderSingBox(nodes) {
         {
           type: 'selector',
           tag: '节点选择',
-          outbounds: ['自动选择', ...outbounds.map((outbound) => outbound.tag), 'direct'],
+          outbounds: ['自动选择', ...outboundTags, 'direct'],
         },
         {
           type: 'urltest',
           tag: '自动选择',
-          outbounds: outbounds.map((outbound) => outbound.tag),
+          outbounds: outboundTags,
           url: 'http://cp.cloudflare.com/generate_204',
           interval: '5m',
         },
@@ -462,6 +469,7 @@ function renderSingBox(nodes) {
           },
         ],
         auto_detect_interface: true,
+        default_domain_resolver: 'dns-local',
         final: '节点选择',
       },
     },

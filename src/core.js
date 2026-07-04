@@ -322,6 +322,7 @@ export function renderSingBoxSubscription(nodes) {
   if (!outbounds.length) {
     throw new Error('没有可导出为 Sing-box 的节点。当前支持 VMess / VLESS / Trojan 常见传输格式。');
   }
+  const outboundTags = outbounds.map((outbound) => outbound.tag);
 
   return JSON.stringify(
     {
@@ -334,8 +335,14 @@ export function renderSingBoxSubscription(nodes) {
             tag: 'dns-remote',
             type: 'https',
             server: '1.1.1.1',
+            detour: outboundTags[0],
+          },
+          {
+            tag: 'dns-local',
+            type: 'local',
           },
         ],
+        final: 'dns-remote',
       },
       inbounds: [
         {
@@ -351,12 +358,12 @@ export function renderSingBoxSubscription(nodes) {
         {
           type: 'selector',
           tag: '节点选择',
-          outbounds: ['自动选择', ...outbounds.map((outbound) => outbound.tag), 'direct'],
+          outbounds: ['自动选择', ...outboundTags, 'direct'],
         },
         {
           type: 'urltest',
           tag: '自动选择',
-          outbounds: outbounds.map((outbound) => outbound.tag),
+          outbounds: outboundTags,
           url: DEFAULT_TEST_URL,
           interval: '5m',
         },
@@ -381,6 +388,7 @@ export function renderSingBoxSubscription(nodes) {
           },
         ],
         auto_detect_interface: true,
+        default_domain_resolver: 'dns-local',
         final: '节点选择',
       },
     },
