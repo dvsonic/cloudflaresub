@@ -455,6 +455,22 @@ function renderSingBox(nodes) {
         },
       ],
       route: {
+        rule_set: [
+          {
+            tag: 'geosite-cn',
+            type: 'remote',
+            format: 'binary',
+            url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs',
+            download_detour: outboundTags[0],
+          },
+          {
+            tag: 'geoip-cn',
+            type: 'remote',
+            format: 'binary',
+            url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs',
+            download_detour: outboundTags[0],
+          },
+        ],
         rules: [
           {
             action: 'sniff',
@@ -467,10 +483,24 @@ function renderSingBox(nodes) {
             ip_is_private: true,
             outbound: 'direct',
           },
+          {
+            domain: ['localhost'],
+            domain_suffix: ['.local', '.lan', '.home.arpa', '.cn'],
+            outbound: 'direct',
+          },
+          {
+            rule_set: ['geosite-cn', 'geoip-cn'],
+            outbound: 'direct',
+          },
         ],
         auto_detect_interface: true,
         default_domain_resolver: 'dns-local',
         final: '节点选择',
+      },
+      experimental: {
+        cache_file: {
+          enabled: true,
+        },
       },
     },
     null,

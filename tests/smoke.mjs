@@ -50,6 +50,11 @@ assert.ok(singbox.dns.servers[0].detour);
 assert.equal(singbox.dns.servers[1].type, 'local');
 assert.equal(singbox.route.auto_detect_interface, true);
 assert.equal(singbox.route.default_domain_resolver, 'dns-local');
+assert.ok(singbox.route.rule_set.some((ruleSet) => ruleSet.tag === 'geosite-cn'));
+assert.ok(singbox.route.rule_set.some((ruleSet) => ruleSet.tag === 'geoip-cn'));
+assert.ok(singbox.route.rules.some((rule) => rule.domain_suffix?.includes('.cn') && rule.outbound === 'direct'));
+assert.ok(singbox.route.rules.some((rule) => rule.rule_set?.includes('geosite-cn') && rule.outbound === 'direct'));
+assert.equal(singbox.experimental.cache_file.enabled, true);
 
 const secret = 'this-is-a-very-secret-key';
 const token = await encryptPayload({ nodes: expanded.nodes }, secret);
