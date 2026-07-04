@@ -6,7 +6,7 @@
     <title>优选IP订阅生成器</title>
     <meta
       name="description"
-      content="将自建 vmess/vless/trojan 节点批量替换为优选 IP，并导出 Clash、V2rayN、Shadowrocket、Surge 可用订阅链接。"
+      content="将自建 vmess/vless/trojan 节点批量替换为优选 IP，并导出 Clash、Sing-box、V2rayN、Shadowrocket、Surge 可用订阅链接。"
     />
     <link rel="icon" href="/icons/auto.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css" />
@@ -94,6 +94,7 @@ cf.example.com:443#US-Edge"
               <li><strong>V2rayN：</strong> 用原始订阅链接</li>
               <li><strong>Shadowrocket：</strong> 用原始订阅链接</li>
               <li><strong>Clash / Mihomo：</strong> 用 Clash 订阅链接</li>
+              <li><strong>Sing-box：</strong> 用 Sing-box 订阅链接</li>
               <li><strong>Surge：</strong> 用 Surge 订阅链接</li>
             </ul>
           </div>
@@ -192,6 +193,25 @@ cf.example.com:443#US-Edge"
             <div class="sub-card-head">
               <div class="client-meta">
                 <div class="client-icon">
+                  <img src="/icons/auto.svg" alt="Sing-box" />
+                </div>
+                <div>
+                  <h3>Sing-box</h3>
+                  <p>适用于 Sing-box JSON 配置导入</p>
+                </div>
+              </div>
+            </div>
+            <div class="sub-actions">
+              <input id="singboxUrl" readonly />
+              <button data-copy-target="singboxUrl" type="button" class="secondary small">复制</button>
+              <button data-qrcode-target="singboxUrl" type="button" class="secondary small">二维码</button>
+            </div>
+          </article>
+
+          <article class="sub-card">
+            <div class="sub-card-head">
+              <div class="client-meta">
+                <div class="client-icon">
                   <img src="/icons/shadowrocket.svg" alt="Shadowrocket" />
                 </div>
                 <div>
@@ -246,6 +266,19 @@ cf.example.com:443#US-Edge"
             </table>
           </div>
         </div>
+      </section>
+
+      <section id="historySection" class="card stack-lg">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">历史</p>
+            <h2>历史订阅</h2>
+            <p class="section-desc">最近生成的订阅会保存在 Worker KV，方便回看和重新复制。</p>
+          </div>
+          <button id="clearHistoryBtn" type="button" class="secondary small">清空历史</button>
+        </div>
+        <div id="historyEmpty" class="empty-state">暂无历史订阅。生成订阅后会自动显示在这里。</div>
+        <div id="historyList" class="history-list"></div>
       </section>
     </main>
 

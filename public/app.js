@@ -9,7 +9,11 @@ const autoUrl = document.getElementById('autoUrl');
 const rawUrl = document.getElementById('rawUrl');
 const clashUrl = document.getElementById('clashUrl');
 const surgeUrl = document.getElementById('surgeUrl');
+const singboxUrl = document.getElementById('singboxUrl');
 const emptyState = document.getElementById('emptyState');
+const historyList = document.getElementById('historyList');
+const historyEmpty = document.getElementById('historyEmpty');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
 const qrModal = document.getElementById('qrModal');
 const qrCanvas = document.getElementById('qrCanvas');
@@ -32,6 +36,8 @@ fillDemoBtn.addEventListener('click', () => {
   document.getElementById('namePrefix').value = 'CF';
   document.getElementById('keepOriginalHost').checked = true;
 });
+
+loadHistory();
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -67,6 +73,7 @@ form.addEventListener('submit', async (event) => {
     document.getElementById('rocketUrl').value = data.urls.raw;
     clashUrl.value = data.urls.clash;
     surgeUrl.value = data.urls.surge;
+    singboxUrl.value = data.urls.singbox;
 
     emptyState.classList.add('hidden');
 
@@ -92,6 +99,8 @@ form.addEventListener('submit', async (event) => {
       warningBox.textContent = data.warnings.join('\n');
       warningBox.classList.remove('hidden');
     }
+
+    renderHistory(data.history || []);
 
     resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
@@ -162,10 +171,91 @@ document.addEventListener('click', async (event) => {
 
 closeQrModal.addEventListener('click', closeQrDialog);
 
+clearHistoryBtn.addEventListener('click', clearHistory);
+
 function closeQrDialog() {
   qrModal.classList.add('hidden');
   qrModal.setAttribute('aria-hidden', 'true');
   qrCanvas.innerHTML = '';
+}
+
+async function loadHistory() {
+  try {
+    const response = await fetch('/api/history');
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || '历史记录加载失败');
+    }
+    renderHistory(data.history || []);
+  } catch {
+    renderHistory([]);
+  }
+}
+
+async function clearHistory() {
+  clearHistoryBtn.disabled = true;
+  try {
+    const response = await fetch('/api/history', { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || '历史记录清空失败');
+    }
+    renderHistory([]);
+  } catch (error) {
+    warningBox.textContent = error.message || '历史记录清空失败';
+    warningBox.classList.remove('hidden');
+    clearHistoryBtn.disabled = false;
+  }
+}
+
+function renderHistory(history = []) {
+  historyEmpty.classList.toggle('hidden', history.length > 0);
+  clearHistoryBtn.disabled = history.length === 0;
+
+  historyList.innerHTML = history
+    .map((item, index) => {
+      const urls = item.urls || {};
+      return `
+        <article class="history-card">
+          <div class="history-head">
+            <div>
+              <strong>${escapeHtml(item.shortId || '历史订阅')}</strong>
+              <p>${escapeHtml(formatDate(item.createdAt))}</p>
+            </div>
+            <span>${escapeHtml(String(item.counts?.outputNodes ?? 0))} 个节点</span>
+          </div>
+          ${renderHistoryUrl(index, 'raw', '原始订阅', urls.raw)}
+          ${renderHistoryUrl(index, 'clash', 'Clash', urls.clash)}
+          ${renderHistoryUrl(index, 'singbox', 'Sing-box', urls.singbox)}
+          ${renderHistoryUrl(index, 'surge', 'Surge', urls.surge)}
+        </article>`;
+    })
+    .join('');
+}
+
+function renderHistoryUrl(index, key, label, value) {
+  if (!value) {
+    return '';
+  }
+  const inputId = `history-${index}-${key}`;
+  return `
+    <div class="history-url">
+      <label for="${inputId}">${escapeHtml(label)}</label>
+      <input id="${inputId}" value="${escapeHtml(value)}" readonly />
+      <button data-copy-target="${inputId}" type="button" class="secondary small">复制</button>
+      <button data-qrcode-target="${inputId}" type="button" class="secondary small">二维码</button>
+    </div>`;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '未知时间';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '未知时间';
+  }
+  return date.toLocaleString('zh-CN', { hour12: false });
 }
 
 function escapeHtml(value) {

@@ -11,7 +11,7 @@ function json(data, status = 200) {
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'access-control-allow-origin': '*',
-      'access-control-allow-methods': 'GET,POST,OPTIONS',
+      'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
       'access-control-allow-headers': 'content-type',
     },
   });
@@ -26,6 +26,9 @@ function text(body, status = 200, contentType = 'text/plain; charset=utf-8') {
     },
   });
 }
+
+const HISTORY_KEY = 'history:subscriptions';
+const HISTORY_LIMIT = 50;
 
 function b64EncodeUtf8(str) {
   return btoa(unescape(encodeURIComponent(str)));
@@ -387,6 +390,154 @@ function renderSurge(nodes, baseUrl, accessToken) {
   ].join('\n');
 }
 
+function renderSingBox(nodes) {
+  const outbounds = nodes.map(toSingBoxOutbound).filter(Boolean);
+  if (!outbounds.length) {
+    throw new Error('没有可导出为 Sing-box 的节点');
+  }
+
+  return JSON.stringify(
+    {
+      log: {
+        level: 'info',
+      },
+      dns: {
+        servers: [
+          {
+            tag: 'dns-remote',
+            address: 'https://1.1.1.1/dns-query',
+          },
+        ],
+      },
+      inbounds: [
+        {
+          type: 'mixed',
+          tag: 'mixed-in',
+          listen: '127.0.0.1',
+          listen_port: 2080,
+        },
+      ],
+      outbounds: [
+        {
+          type: 'selector',
+          tag: '节点选择',
+          outbounds: ['自动选择', ...outbounds.map((outbound) => outbound.tag), 'direct'],
+        },
+        {
+          type: 'urltest',
+          tag: '自动选择',
+          outbounds: outbounds.map((outbound) => outbound.tag),
+          url: 'http://cp.cloudflare.com/generate_204',
+          interval: '5m',
+        },
+        ...outbounds,
+        {
+          type: 'direct',
+          tag: 'direct',
+        },
+      ],
+      route: {
+        final: '节点选择',
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function toSingBoxOutbound(node) {
+  if (!['vmess', 'vless', 'trojan'].includes(node.type)) {
+    return null;
+  }
+
+  const outbound = {
+    type: node.type,
+    tag: sanitizeSingBoxTag(node.name),
+    server: node.server,
+    server_port: node.port,
+  };
+
+  if (node.type === 'vmess') {
+    outbound.uuid = node.uuid;
+    outbound.security = node.cipher || 'auto';
+    outbound.alter_id = 0;
+  }
+  if (node.type === 'vless') {
+    outbound.uuid = node.uuid;
+    if (node.flow) outbound.flow = node.flow;
+  }
+  if (node.type === 'trojan') {
+    outbound.password = node.password;
+  }
+
+  const tls = buildSingBoxTls(node);
+  if (tls) outbound.tls = tls;
+
+  const transport = buildSingBoxTransport(node);
+  if (transport) outbound.transport = transport;
+
+  return outbound;
+}
+
+function buildSingBoxTls(node) {
+  if (!node.tls) {
+    return null;
+  }
+
+  const tls = {
+    enabled: true,
+  };
+  const serverName = node.sni || node.host || node.server;
+  if (serverName) tls.server_name = serverName;
+  if (node.alpn) tls.alpn = String(node.alpn).split(',').map((item) => item.trim()).filter(Boolean);
+  if (node.fp) {
+    tls.utls = {
+      enabled: true,
+      fingerprint: node.fp,
+    };
+  }
+  return tls;
+}
+
+function buildSingBoxTransport(node) {
+  const network = String(node.network || 'tcp').toLowerCase();
+  if (network === 'ws') {
+    const transport = {
+      type: 'ws',
+      path: node.path || '/',
+    };
+    if (node.host) {
+      transport.headers = {
+        Host: node.host,
+      };
+    }
+    return transport;
+  }
+  if (network === 'grpc') {
+    return {
+      type: 'grpc',
+      service_name: node.serviceName || '',
+    };
+  }
+  if (network === 'http' || network === 'h2') {
+    const transport = {
+      type: 'http',
+      path: node.path || '/',
+    };
+    if (node.host) {
+      transport.host = [node.host];
+    }
+    return transport;
+  }
+  return null;
+}
+
+function sanitizeSingBoxTag(name) {
+  return String(name || 'proxy')
+    .replace(/[\r\n]/g, ' ')
+    .trim() || 'proxy';
+}
+
 function createShortId(length = 10) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   const bytes = crypto.getRandomValues(new Uint8Array(length));
@@ -488,7 +639,7 @@ async function handleGenerate(request, env, url) {
         : `?token=${encodeURIComponent(accessToken)}`
     }`;
 
-  return json({
+  const result = {
     ok: true,
     storage: 'kv',
     deduplicated: true,
@@ -498,6 +649,7 @@ async function handleGenerate(request, env, url) {
       raw: withToken('raw'),
       clash: withToken('clash'),
       surge: withToken('surge'),
+      singbox: withToken('singbox'),
     },
     counts: {
       inputNodes: baseNodes.length,
@@ -513,7 +665,16 @@ async function handleGenerate(request, env, url) {
       sni: node.sni || '',
     })),
     warnings: accessToken ? [] : ['未检测到 SUB_ACCESS_TOKEN，订阅链接将没有第二层访问保护。'],
+  };
+
+  result.history = await saveHistoryEntry(env, {
+    shortId: id,
+    createdAt: payload.createdAt,
+    urls: result.urls,
+    counts: result.counts,
   });
+
+  return json(result);
 }
 
 function validateAccessToken(url, env) {
@@ -550,7 +711,45 @@ async function handleSub(url, env) {
       'text/plain; charset=utf-8',
     );
   }
+  if (target === 'singbox' || target === 'sing-box') {
+    return text(renderSingBox(nodes), 200, 'application/json; charset=utf-8');
+  }
   return text(renderRaw(nodes), 200, 'text/plain; charset=utf-8');
+}
+
+async function handleHistory(request, env) {
+  if (request.method === 'GET') {
+    return json({ ok: true, history: await loadHistory(env) });
+  }
+
+  if (request.method === 'DELETE') {
+    await env.SUB_STORE.delete(HISTORY_KEY);
+    return json({ ok: true, history: [] });
+  }
+
+  return json({ ok: false, error: 'Method not allowed' }, 405);
+}
+
+async function loadHistory(env) {
+  const raw = await env.SUB_STORE.get(HISTORY_KEY);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveHistoryEntry(env, entry) {
+  const history = (await loadHistory(env)).filter((item) => item.shortId !== entry.shortId);
+  history.unshift(entry);
+  const nextHistory = history.slice(0, HISTORY_LIMIT);
+  await env.SUB_STORE.put(HISTORY_KEY, JSON.stringify(nextHistory));
+  return nextHistory;
 }
 
 export default {
@@ -561,7 +760,7 @@ export default {
       return new Response(null, {
         headers: {
           'access-control-allow-origin': '*',
-          'access-control-allow-methods': 'GET,POST,OPTIONS',
+          'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
           'access-control-allow-headers': 'content-type',
         },
       });
@@ -569,6 +768,10 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/api/generate') {
       return handleGenerate(request, env, url);
+    }
+
+    if ((request.method === 'GET' || request.method === 'DELETE') && url.pathname === '/api/history') {
+      return handleHistory(request, env);
     }
 
     if (request.method === 'GET' && url.pathname.startsWith('/sub/')) {

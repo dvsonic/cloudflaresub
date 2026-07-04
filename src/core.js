@@ -46,6 +46,7 @@ export function buildShareUrls(origin, token) {
     raw: `${base}?target=raw`,
     clash: `${base}?target=clash`,
     surge: `${base}?target=surge`,
+    singbox: `${base}?target=singbox`,
     json: `${base}?target=json`,
   };
 }
@@ -221,6 +222,13 @@ export function renderSubscription(target, nodes, requestUrl) {
         contentType: 'text/plain; charset=utf-8',
         filename: 'subscription-surge.conf',
       };
+    case 'singbox':
+    case 'sing-box':
+      return {
+        body: renderSingBoxSubscription(nodes),
+        contentType: 'application/json; charset=utf-8',
+        filename: 'subscription-singbox.json',
+      };
     case 'json':
       return {
         body: JSON.stringify(nodes, null, 2),
@@ -307,6 +315,61 @@ export function renderSurgeSubscription(nodes, requestUrl) {
   lines.push('');
 
   return lines.join('\n');
+}
+
+export function renderSingBoxSubscription(nodes) {
+  const outbounds = nodes.map(renderSingBoxOutbound).filter(Boolean);
+  if (!outbounds.length) {
+    throw new Error('没有可导出为 Sing-box 的节点。当前支持 VMess / VLESS / Trojan 常见传输格式。');
+  }
+
+  return JSON.stringify(
+    {
+      log: {
+        level: 'info',
+      },
+      dns: {
+        servers: [
+          {
+            tag: 'dns-remote',
+            address: 'https://1.1.1.1/dns-query',
+          },
+        ],
+      },
+      inbounds: [
+        {
+          type: 'mixed',
+          tag: 'mixed-in',
+          listen: '127.0.0.1',
+          listen_port: 2080,
+        },
+      ],
+      outbounds: [
+        {
+          type: 'selector',
+          tag: '节点选择',
+          outbounds: ['自动选择', ...outbounds.map((outbound) => outbound.tag), 'direct'],
+        },
+        {
+          type: 'urltest',
+          tag: '自动选择',
+          outbounds: outbounds.map((outbound) => outbound.tag),
+          url: DEFAULT_TEST_URL,
+          interval: '5m',
+        },
+        ...outbounds,
+        {
+          type: 'direct',
+          tag: 'direct',
+        },
+      ],
+      route: {
+        final: '节点选择',
+      },
+    },
+    null,
+    2,
+  );
 }
 
 export function renderNodeUri(node) {
@@ -674,6 +737,111 @@ function renderSurgeProxy(node) {
   return `${name} = trojan, ${formatHostForUrl(node.server)}, ${node.port}, ${trojanParams.join(', ')}`;
 }
 
+function renderSingBoxOutbound(node) {
+  if (!['vmess', 'vless', 'trojan'].includes(node.type)) {
+    return null;
+  }
+
+  const outbound = {
+    type: node.type,
+    tag: sanitizeSingBoxTag(node.name),
+    server: node.server,
+    server_port: node.port,
+  };
+
+  if (node.type === 'vmess') {
+    outbound.uuid = node.uuid;
+    outbound.security = node.cipher || 'auto';
+    outbound.alter_id = node.alterId ?? 0;
+  }
+  if (node.type === 'vless') {
+    outbound.uuid = node.uuid;
+    if (node.flow) {
+      outbound.flow = node.flow;
+    }
+  }
+  if (node.type === 'trojan') {
+    outbound.password = node.password;
+  }
+
+  const tls = buildSingBoxTls(node);
+  if (tls) {
+    outbound.tls = tls;
+  }
+
+  const transport = buildSingBoxTransport(node);
+  if (transport) {
+    outbound.transport = transport;
+  }
+
+  return outbound;
+}
+
+function buildSingBoxTls(node) {
+  if (!node.tls && !node.security) {
+    return null;
+  }
+
+  const tls = {
+    enabled: true,
+  };
+  const serverName = getEffectiveTlsHost(node);
+  if (serverName) {
+    tls.server_name = serverName;
+  }
+  if (node.allowInsecure) {
+    tls.insecure = true;
+  }
+  if (node.alpn?.length) {
+    tls.alpn = node.alpn;
+  }
+  if (node.fp) {
+    tls.utls = {
+      enabled: true,
+      fingerprint: node.fp,
+    };
+  }
+  if (node.security === 'reality') {
+    tls.reality = {
+      enabled: true,
+    };
+  }
+  return tls;
+}
+
+function buildSingBoxTransport(node) {
+  const network = String(node.network || 'tcp').toLowerCase();
+  if (network === 'ws') {
+    const transport = {
+      type: 'ws',
+      path: node.path || '/',
+    };
+    if (node.hostHeader) {
+      transport.headers = {
+        Host: node.hostHeader,
+      };
+    }
+    return transport;
+  }
+  if (network === 'grpc') {
+    return {
+      type: 'grpc',
+      service_name: node.serviceName || '',
+    };
+  }
+  if (network === 'http' || network === 'h2') {
+    const transport = {
+      type: 'http',
+      path: node.path || '/',
+    };
+    if (node.hostHeader) {
+      transport.host = [node.hostHeader];
+    }
+    return transport;
+  }
+  return null;
+}
+
 function buildNodeName(baseName, suffix) {
   const cleanBase = String(baseName || '').trim() || 'node';
   const cleanSuffix = String(suffix || '').trim();
@@ -766,6 +934,12 @@ function sanitizeSurgeName(name) {
     .replace(/,/g, '，')
     .replace(/=/g, '＝')
     .trim();
+}
+
+function sanitizeSingBoxTag(name) {
+  return String(name || 'proxy')
+    .replace(/[\r\n]/g, ' ')
+    .trim() || 'proxy';
 }
 
 function escapeSurgeHeader(value) {

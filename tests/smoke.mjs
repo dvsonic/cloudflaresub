@@ -7,6 +7,7 @@ import {
   parsePreferredEndpoints,
   renderClashSubscription,
   renderRawSubscription,
+  renderSingBoxSubscription,
   renderSurgeSubscription,
 } from '../src/core.js';
 
@@ -36,6 +37,10 @@ assert.match(clash, /edge\.example\.com/);
 const surge = renderSurgeSubscription(expanded.nodes, 'https://sub.example.com/sub/demo?target=surge');
 assert.match(surge, /\[Proxy]/);
 assert.match(surge, /vmess/);
+
+const singbox = JSON.parse(renderSingBoxSubscription(expanded.nodes));
+assert.equal(singbox.outbounds[0].type, 'selector');
+assert.ok(singbox.outbounds.some((outbound) => outbound.type === 'vmess'));
 
 const secret = 'this-is-a-very-secret-key';
 const token = await encryptPayload({ nodes: expanded.nodes }, secret);

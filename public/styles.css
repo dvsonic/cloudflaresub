@@ -111,7 +111,8 @@ p {
 
 form.card,
 .tips,
-#resultSection {
+#resultSection,
+#historySection {
   padding: 24px;
 }
 
@@ -322,14 +323,16 @@ button.small {
   .card,
   form.card,
   .tips,
-  #resultSection {
+  #resultSection,
+  #historySection {
     border-radius: 16px;
   }
 
   .hero,
   form.card,
   .tips,
-  #resultSection {
+  #resultSection,
+  #historySection {
     padding: 18px;
   }
 
@@ -385,6 +388,10 @@ button.small {
 }
 
 #resultSection {
+  margin-top: 24px;
+}
+
+#historySection {
   margin-top: 24px;
 }
 
@@ -562,5 +569,77 @@ button.small {
 @media (max-width: 640px) {
   .hero-title {
     gap: 10px;
+  }
+}
+
+.history-list {
+  display: grid;
+  gap: 16px;
+}
+
+.history-card {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(120, 140, 180, 0.16);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.history-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.history-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.history-head span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #bbf7d0;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.16);
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.history-url {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.history-url + .history-url {
+  margin-top: 10px;
+}
+
+.history-url label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .history-head {
+    flex-direction: column;
+  }
+
+  .history-url {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .history-url label,
+  .history-url input {
+    grid-column: 1 / -1;
+  }
+
+  .history-url button {
+    width: 100%;
   }
 }
