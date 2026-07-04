@@ -41,6 +41,9 @@ assert.match(surge, /vmess/);
 const singbox = JSON.parse(renderSingBoxSubscription(expanded.nodes));
 assert.equal(singbox.outbounds[0].type, 'selector');
 assert.ok(singbox.outbounds.some((outbound) => outbound.type === 'vmess'));
+assert.equal(singbox.dns.servers[0].type, 'https');
+assert.equal(singbox.dns.servers[0].server, '1.1.1.1');
+assert.equal(singbox.dns.servers[0].address, undefined);
 
 const secret = 'this-is-a-very-secret-key';
 const token = await encryptPayload({ nodes: expanded.nodes }, secret);

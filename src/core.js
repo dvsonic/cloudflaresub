@@ -332,7 +332,8 @@ export function renderSingBoxSubscription(nodes) {
         servers: [
           {
             tag: 'dns-remote',
-            address: 'https://1.1.1.1/dns-query',
+            type: 'https',
+            server: '1.1.1.1',
           },
         ],
       },
