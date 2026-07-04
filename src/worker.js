@@ -420,10 +420,12 @@ function renderSingBox(nodes) {
       },
       inbounds: [
         {
-          type: 'mixed',
-          tag: 'mixed-in',
-          listen: '127.0.0.1',
-          listen_port: 2080,
+          type: 'tun',
+          tag: 'tun-in',
+          address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
+          auto_route: true,
+          strict_route: true,
+          stack: 'mixed',
         },
       ],
       outbounds: [
@@ -446,6 +448,20 @@ function renderSingBox(nodes) {
         },
       ],
       route: {
+        rules: [
+          {
+            action: 'sniff',
+          },
+          {
+            protocol: 'dns',
+            action: 'hijack-dns',
+          },
+          {
+            ip_is_private: true,
+            outbound: 'direct',
+          },
+        ],
+        auto_detect_interface: true,
         final: '节点选择',
       },
     },
