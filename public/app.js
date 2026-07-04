@@ -146,13 +146,15 @@ document.addEventListener('click', async (event) => {
       return;
     }
 
+    const qrValue = formatQrValue(input.value, qrButton.dataset.qrcodeClient);
+
     qrCanvas.innerHTML = '';
-    qrText.textContent = input.value;
+    qrText.textContent = qrValue;
     qrModal.classList.remove('hidden');
     qrModal.setAttribute('aria-hidden', 'false');
 
     new window.QRCode(qrCanvas, {
-      text: input.value,
+      text: qrValue,
       width: 220,
       height: 220,
       correctLevel: window.QRCode.CorrectLevel.M,
@@ -248,13 +250,21 @@ function renderHistoryUrl(index, key, label, value) {
     return '';
   }
   const inputId = `history-${index}-${key}`;
+  const qrClient = key === 'singbox' ? ' data-qrcode-client="singbox"' : '';
   return `
     <div class="history-url">
       <label for="${inputId}">${escapeHtml(label)}</label>
       <input id="${inputId}" value="${escapeHtml(value)}" readonly />
       <button data-copy-target="${inputId}" type="button" class="secondary small">复制</button>
-      <button data-qrcode-target="${inputId}" type="button" class="secondary small">二维码</button>
+      <button data-qrcode-target="${inputId}"${qrClient} type="button" class="secondary small">二维码</button>
     </div>`;
+}
+
+function formatQrValue(value, client) {
+  if (client === 'singbox') {
+    return `sing-box://import-remote-profile?url=${encodeURIComponent(value)}#${encodeURIComponent('CloudflareSub')}`;
+  }
+  return value;
 }
 
 function formatDate(value) {
