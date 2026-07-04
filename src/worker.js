@@ -30,6 +30,14 @@ function text(body, status = 200, contentType = 'text/plain; charset=utf-8') {
 const HISTORY_KEY = 'history:subscriptions';
 const HISTORY_LIMIT = 50;
 
+function missingKvResponse(url) {
+  const message = '未绑定 KV namespace：SUB_STORE。请在 Cloudflare Worker 的 Settings -> Bindings 中绑定 KV 后重新部署。';
+  if (url.pathname.startsWith('/api/')) {
+    return json({ ok: false, error: message }, 500);
+  }
+  return text(message, 500);
+}
+
 function b64EncodeUtf8(str) {
   return btoa(unescape(encodeURIComponent(str)));
 }
@@ -667,12 +675,17 @@ async function handleGenerate(request, env, url) {
     warnings: accessToken ? [] : ['未检测到 SUB_ACCESS_TOKEN，订阅链接将没有第二层访问保护。'],
   };
 
-  result.history = await saveHistoryEntry(env, {
-    shortId: id,
-    createdAt: payload.createdAt,
-    urls: result.urls,
-    counts: result.counts,
-  });
+  try {
+    result.history = await saveHistoryEntry(env, {
+      shortId: id,
+      createdAt: payload.createdAt,
+      urls: result.urls,
+      counts: result.counts,
+    });
+  } catch (error) {
+    result.history = await loadHistory(env);
+    result.warnings.push(`订阅已生成，但历史记录写入失败：${error?.message || '未知错误'}`);
+  }
 
   return json(result);
 }
@@ -755,6 +768,7 @@ async function saveHistoryEntry(env, entry) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const isWorkerRoute = url.pathname.startsWith('/api/') || url.pathname.startsWith('/sub/');
 
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -766,16 +780,28 @@ export default {
       });
     }
 
-    if (request.method === 'POST' && url.pathname === '/api/generate') {
-      return handleGenerate(request, env, url);
+    if (isWorkerRoute && !env.SUB_STORE) {
+      return missingKvResponse(url);
     }
 
-    if ((request.method === 'GET' || request.method === 'DELETE') && url.pathname === '/api/history') {
-      return handleHistory(request, env);
-    }
+    try {
+      if (request.method === 'POST' && url.pathname === '/api/generate') {
+        return handleGenerate(request, env, url);
+      }
 
-    if (request.method === 'GET' && url.pathname.startsWith('/sub/')) {
-      return handleSub(url, env);
+      if ((request.method === 'GET' || request.method === 'DELETE') && url.pathname === '/api/history') {
+        return handleHistory(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname.startsWith('/sub/')) {
+        return handleSub(url, env);
+      }
+    } catch (error) {
+      const message = error?.message || '服务器内部错误';
+      if (url.pathname.startsWith('/api/')) {
+        return json({ ok: false, error: message }, 500);
+      }
+      return text(message, 500);
     }
 
     return env.ASSETS.fetch(request);

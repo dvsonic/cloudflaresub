@@ -62,11 +62,7 @@ form.addEventListener('submit', async (event) => {
       },
       body: JSON.stringify(payload),
     });
-
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || '生成失败');
-    }
+    const data = await parseApiResponse(response, '生成失败');
 
     autoUrl.value = data.urls.auto;
     rawUrl.value = data.urls.raw;
@@ -182,10 +178,7 @@ function closeQrDialog() {
 async function loadHistory() {
   try {
     const response = await fetch('/api/history');
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || '历史记录加载失败');
-    }
+    const data = await parseApiResponse(response, '历史记录加载失败');
     renderHistory(data.history || []);
   } catch {
     renderHistory([]);
@@ -196,16 +189,33 @@ async function clearHistory() {
   clearHistoryBtn.disabled = true;
   try {
     const response = await fetch('/api/history', { method: 'DELETE' });
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || '历史记录清空失败');
-    }
+    await parseApiResponse(response, '历史记录清空失败');
     renderHistory([]);
   } catch (error) {
     warningBox.textContent = error.message || '历史记录清空失败';
     warningBox.classList.remove('hidden');
     clearHistoryBtn.disabled = false;
   }
+}
+
+async function parseApiResponse(response, fallbackMessage) {
+  const bodyText = await response.text();
+  let data;
+
+  try {
+    data = bodyText ? JSON.parse(bodyText) : {};
+  } catch {
+    const isHtml = bodyText.trim().startsWith('<');
+    if (isHtml) {
+      throw new Error(`${fallbackMessage}：接口返回了 HTML。请确认 Cloudflare 已重新部署 Worker，且 /api/* 路由进入 Worker。`);
+    }
+    throw new Error(`${fallbackMessage}：接口返回不是合法 JSON。`);
+  }
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || fallbackMessage);
+  }
+  return data;
 }
 
 function renderHistory(history = []) {
