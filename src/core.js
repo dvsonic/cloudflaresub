@@ -147,17 +147,19 @@ export function parsePreferredEndpoints(inputText) {
 export function expandNodes(baseNodes, endpoints, options = {}) {
   const keepOriginalHost = options.keepOriginalHost !== false;
   const namePrefix = String(options.namePrefix || '').trim();
+  const cdnProvider = options.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
+  const cloudfrontHost = String(options.cloudfrontHost || '').trim();
   const warnings = [];
   const expanded = [];
 
   baseNodes.forEach((baseNode) => {
     const originalTlsHost = getEffectiveTlsHost(baseNode);
-    if (keepOriginalHost && !originalTlsHost) {
+    if (cdnProvider === 'cloudflare' && keepOriginalHost && !originalTlsHost) {
       warnings.push(`节点「${baseNode.name}」缺少 Host/SNI/原始域名，替换成优选 IP 后可能无法握手。`);
     }
 
     endpoints.forEach((endpoint, index) => {
-      const port = endpoint.port || baseNode.port;
+      const port = cdnProvider === 'cloudfront' ? 443 : endpoint.port || baseNode.port;
       const label = endpoint.label || `${endpoint.host}:${port}`;
       const suffix = namePrefix ? `${namePrefix}-${index + 1}` : label;
       const clone = deepClone(baseNode);
@@ -167,7 +169,13 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
       clone.endpointLabel = endpoint.label || '';
       clone.endpointSource = `${endpoint.host}:${port}`;
 
-      if (keepOriginalHost) {
+      if (cdnProvider === 'cloudfront') {
+        clone.sni = cloudfrontHost;
+        clone.hostHeader = cloudfrontHost;
+        clone.tls = true;
+        clone.security = 'tls';
+        clone.alpn = ['http/1.1'];
+      } else if (keepOriginalHost) {
         clone.sni = baseNode.sni || baseNode.hostHeader || baseNode.originalServer || '';
         clone.hostHeader = baseNode.hostHeader || baseNode.sni || baseNode.originalServer || '';
       } else {

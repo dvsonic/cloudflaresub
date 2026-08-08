@@ -27,7 +27,7 @@
         </div>
         <div class="hero-note">
           <strong>适合场景</strong>
-          <p>3X-UI / Xray / VPS 自建节点 + 你自己找好的 Cloudflare 优选 IP。</p>
+          <p>3X-UI / Xray / VPS 自建节点 + 你自己找好的 Cloudflare 或 AWS CloudFront 优选 IP。</p>
         </div>
       </section>
 
@@ -64,7 +64,29 @@ cf.example.com:443#US-Edge"
 
           <div class="grid two-col compact">
             <div>
-              <label for="namePrefix">3. 备注前缀（可选）</label>
+              <label for="cdnProvider">3. CDN 类型</label>
+              <select id="cdnProvider" name="cdnProvider">
+                <option value="cloudflare">Cloudflare</option>
+                <option value="cloudfront">AWS CloudFront</option>
+              </select>
+            </div>
+            <div id="cloudfrontHostWrap" class="hidden">
+              <label for="cloudfrontHost">CloudFront Host / SNI</label>
+              <input
+                id="cloudfrontHost"
+                name="cloudfrontHost"
+                type="text"
+                placeholder="例如 dxxxxxxxxxxxxx.cloudfront.net"
+              />
+            </div>
+          </div>
+          <p id="cdnModeHint" class="hint">
+            Cloudflare 模式会按下方选项保留原节点 Host / SNI。
+          </p>
+
+          <div class="grid two-col compact">
+            <div>
+              <label for="namePrefix">4. 备注前缀（可选）</label>
               <input id="namePrefix" name="namePrefix" type="text" placeholder="例如 CF" />
             </div>
             <div class="checkbox-wrap">
@@ -84,7 +106,7 @@ cf.example.com:443#US-Edge"
           <ul>
             <li>不会帮你找优选 IP，只负责把你现成的优选 IP 替换进节点。</li>
             <li>生成的链接是“同一份节点内容”的不同导出格式，分别给不同客户端使用。</li>
-            <li>推荐勾选“保留原 Host / SNI”，这样更适合 Cloudflare CDN 场景。</li>
+            <li>Cloudflare 模式推荐保留原 Host / SNI；CloudFront 模式会自动改用 Distribution 域名并固定 HTTP/1.1。</li>
             <li>订阅链接里的节点信息会通过服务端密钥加密，请不要把链接公开分享。</li>
           </ul>
 

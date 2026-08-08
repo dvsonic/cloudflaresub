@@ -27,6 +27,17 @@ assert.equal(expanded.nodes[0].server, '104.16.1.2');
 assert.equal(expanded.nodes[0].hostHeader, 'edge.example.com');
 assert.equal(expanded.nodes[1].port, 2053);
 
+const cloudfront = expandNodes(nodes, endpoints.slice(0, 1), {
+  cdnProvider: 'cloudfront',
+  cloudfrontHost: 'd2sncbn3whbq65.cloudfront.net',
+  namePrefix: 'AWS',
+});
+assert.equal(cloudfront.nodes[0].server, '104.16.1.2');
+assert.equal(cloudfront.nodes[0].port, 443);
+assert.equal(cloudfront.nodes[0].hostHeader, 'd2sncbn3whbq65.cloudfront.net');
+assert.equal(cloudfront.nodes[0].sni, 'd2sncbn3whbq65.cloudfront.net');
+assert.deepEqual(cloudfront.nodes[0].alpn, ['http/1.1']);
+
 const raw = renderRawSubscription(expanded.nodes);
 assert.ok(raw.length > 10);
 

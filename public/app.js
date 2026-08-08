@@ -4,6 +4,11 @@ const fillDemoBtn = document.getElementById('fillDemoBtn');
 const resultSection = document.getElementById('resultSection');
 const warningBox = document.getElementById('warningBox');
 const previewBody = document.getElementById('previewBody');
+const cdnProvider = document.getElementById('cdnProvider');
+const cloudfrontHost = document.getElementById('cloudfrontHost');
+const cloudfrontHostWrap = document.getElementById('cloudfrontHostWrap');
+const keepOriginalHost = document.getElementById('keepOriginalHost');
+const cdnModeHint = document.getElementById('cdnModeHint');
 
 const autoUrl = document.getElementById('autoUrl');
 const rawUrl = document.getElementById('rawUrl');
@@ -34,9 +39,14 @@ fillDemoBtn.addEventListener('click', () => {
   document.getElementById('nodeLinks').value = demoVmess;
   document.getElementById('preferredIps').value = demoIps;
   document.getElementById('namePrefix').value = 'CF';
-  document.getElementById('keepOriginalHost').checked = true;
+  cdnProvider.value = 'cloudflare';
+  cloudfrontHost.value = '';
+  keepOriginalHost.checked = true;
+  updateCdnMode();
 });
 
+cdnProvider.addEventListener('change', updateCdnMode);
+updateCdnMode();
 loadHistory();
 
 form.addEventListener('submit', async (event) => {
@@ -48,7 +58,9 @@ form.addEventListener('submit', async (event) => {
     nodeLinks: document.getElementById('nodeLinks').value,
     preferredIps: document.getElementById('preferredIps').value,
     namePrefix: document.getElementById('namePrefix').value,
-    keepOriginalHost: document.getElementById('keepOriginalHost').checked,
+    keepOriginalHost: keepOriginalHost.checked,
+    cdnProvider: cdnProvider.value,
+    cloudfrontHost: cloudfrontHost.value,
   };
 
   submitBtn.disabled = true;
@@ -107,6 +119,16 @@ form.addEventListener('submit', async (event) => {
     submitBtn.textContent = '生成订阅';
   }
 });
+
+function updateCdnMode() {
+  const isCloudFront = cdnProvider.value === 'cloudfront';
+  cloudfrontHostWrap.classList.toggle('hidden', !isCloudFront);
+  cloudfrontHost.required = isCloudFront;
+  keepOriginalHost.disabled = isCloudFront;
+  cdnModeHint.textContent = isCloudFront
+    ? 'CloudFront 模式会把生成节点的 Host / SNI 改为此 Distribution 域名，并将 ALPN 设为 http/1.1。'
+    : 'Cloudflare 模式会按下方选项保留原节点 Host / SNI。';
+}
 
 document.addEventListener('click', async (event) => {
   const copyButton = event.target.closest('[data-copy-target]');
