@@ -29,7 +29,7 @@ assert.equal(expanded.nodes[1].port, 2053);
 
 const cloudfront = expandNodes(nodes, endpoints.slice(0, 1), {
   cdnProvider: 'cloudfront',
-  cloudfrontHost: 'd2sncbn3whbq65.cloudfront.net',
+  hostSni: 'd2sncbn3whbq65.cloudfront.net',
   namePrefix: 'AWS',
 });
 assert.equal(cloudfront.nodes[0].server, '104.16.1.2');
@@ -38,9 +38,16 @@ assert.equal(cloudfront.nodes[0].hostHeader, 'd2sncbn3whbq65.cloudfront.net');
 assert.equal(cloudfront.nodes[0].sni, 'd2sncbn3whbq65.cloudfront.net');
 assert.deepEqual(cloudfront.nodes[0].alpn, ['http/1.1']);
 
+const cloudfrontDefaultHost = expandNodes(nodes, endpoints.slice(0, 1), {
+  cdnProvider: 'cloudfront',
+  keepOriginalHost: true,
+});
+assert.equal(cloudfrontDefaultHost.nodes[0].hostHeader, 'edge.example.com');
+assert.equal(cloudfrontDefaultHost.nodes[0].sni, 'edge.example.com');
+
 const tunneled = expandNodes(nodes, endpoints.slice(0, 1), {
   keepOriginalHost: true,
-  customHost: 'argooci.iconliu.dpdns.org',
+  hostSni: 'argooci.iconliu.dpdns.org',
 });
 assert.equal(tunneled.nodes[0].hostHeader, 'argooci.iconliu.dpdns.org');
 assert.equal(tunneled.nodes[0].sni, 'argooci.iconliu.dpdns.org');

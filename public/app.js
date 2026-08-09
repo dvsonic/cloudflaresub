@@ -5,8 +5,7 @@ const resultSection = document.getElementById('resultSection');
 const warningBox = document.getElementById('warningBox');
 const previewBody = document.getElementById('previewBody');
 const cdnProvider = document.getElementById('cdnProvider');
-const cloudfrontHost = document.getElementById('cloudfrontHost');
-const cloudfrontHostWrap = document.getElementById('cloudfrontHostWrap');
+const hostSni = document.getElementById('hostSni');
 const keepOriginalHost = document.getElementById('keepOriginalHost');
 const cdnModeHint = document.getElementById('cdnModeHint');
 
@@ -40,10 +39,8 @@ fillDemoBtn.addEventListener('click', () => {
   document.getElementById('preferredIps').value = demoIps;
   document.getElementById('namePrefix').value = 'CF';
   cdnProvider.value = 'cloudflare';
-  cloudfrontHost.value = '';
+  hostSni.value = '';
   keepOriginalHost.checked = true;
-  document.getElementById('customHost').value = '';
-  document.getElementById('customSni').value = '';
   updateCdnMode();
 });
 
@@ -62,9 +59,7 @@ form.addEventListener('submit', async (event) => {
     namePrefix: document.getElementById('namePrefix').value,
     keepOriginalHost: keepOriginalHost.checked,
     cdnProvider: cdnProvider.value,
-    cloudfrontHost: cloudfrontHost.value,
-    customHost: document.getElementById('customHost').value,
-    customSni: document.getElementById('customSni').value,
+    hostSni: hostSni.value,
   };
 
   submitBtn.disabled = true;
@@ -126,12 +121,9 @@ form.addEventListener('submit', async (event) => {
 
 function updateCdnMode() {
   const isCloudFront = cdnProvider.value === 'cloudfront';
-  cloudfrontHostWrap.classList.toggle('hidden', !isCloudFront);
-  cloudfrontHost.required = isCloudFront;
-  keepOriginalHost.disabled = isCloudFront;
   cdnModeHint.textContent = isCloudFront
-    ? 'CloudFront 模式会把生成节点的 Host / SNI 改为此 Distribution 域名，并将 ALPN 设为 http/1.1。'
-    : 'Cloudflare 模式会按下方选项保留原节点 Host / SNI。';
+    ? '填写后会覆盖 Host / SNI；留空则保留原节点域名。CloudFront 模式固定使用 443、TLS 和 http/1.1。'
+    : '填写后会覆盖 Host / SNI；留空则按下方选项保留原节点域名。';
 }
 
 document.addEventListener('click', async (event) => {

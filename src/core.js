@@ -148,15 +148,13 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
   const keepOriginalHost = options.keepOriginalHost !== false;
   const namePrefix = String(options.namePrefix || '').trim();
   const cdnProvider = options.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
-  const cloudfrontHost = String(options.cloudfrontHost || '').trim();
-  const customHost = String(options.customHost || '').trim();
-  const customSni = String(options.customSni || customHost).trim();
+  const hostSni = String(options.hostSni || '').trim();
   const warnings = [];
   const expanded = [];
 
   baseNodes.forEach((baseNode) => {
     const originalTlsHost = getEffectiveTlsHost(baseNode);
-    if (cdnProvider === 'cloudflare' && keepOriginalHost && !customHost && !customSni && !originalTlsHost) {
+    if (keepOriginalHost && !hostSni && !originalTlsHost) {
       warnings.push(`节点「${baseNode.name}」缺少 Host/SNI/原始域名，替换成优选 IP 后可能无法握手。`);
     }
 
@@ -171,13 +169,7 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
       clone.endpointLabel = endpoint.label || '';
       clone.endpointSource = `${endpoint.host}:${port}`;
 
-      if (cdnProvider === 'cloudfront') {
-        clone.sni = cloudfrontHost;
-        clone.hostHeader = cloudfrontHost;
-        clone.tls = true;
-        clone.security = 'tls';
-        clone.alpn = ['http/1.1'];
-      } else if (keepOriginalHost) {
+      if (keepOriginalHost) {
         clone.sni = baseNode.sni || baseNode.hostHeader || baseNode.originalServer || '';
         clone.hostHeader = baseNode.hostHeader || baseNode.sni || baseNode.originalServer || '';
       } else {
@@ -189,11 +181,15 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
         }
       }
 
-      if (customHost) {
-        clone.hostHeader = customHost;
+      if (hostSni) {
+        clone.hostHeader = hostSni;
+        clone.sni = hostSni;
       }
-      if (customSni) {
-        clone.sni = customSni;
+
+      if (cdnProvider === 'cloudfront') {
+        clone.tls = true;
+        clone.security = 'tls';
+        clone.alpn = ['http/1.1'];
       }
 
       expanded.push(clone);

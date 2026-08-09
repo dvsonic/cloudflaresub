@@ -145,9 +145,7 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
   const output = [];
   const prefix = (options.namePrefix || '').trim();
   const cdnProvider = options.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
-  const cloudfrontHost = String(options.cloudfrontHost || '').trim();
-  const customHost = String(options.customHost || '').trim();
-  const customSni = String(options.customSni || customHost).trim();
+  const hostSni = String(options.hostSni || '').trim();
   let counter = 0;
   for (const node of baseNodes) {
     for (const ep of preferredEndpoints) {
@@ -162,12 +160,8 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
         name: nameParts.join(' | '),
         server: ep.server,
         port: cdnProvider === 'cloudfront' ? 443 : ep.port || node.port,
-        host:
-          customHost ||
-          (cdnProvider === 'cloudfront' ? cloudfrontHost : options.keepOriginalHost ? node.host : ''),
-        sni:
-          customSni ||
-          (cdnProvider === 'cloudfront' ? cloudfrontHost : options.keepOriginalHost ? node.sni : ''),
+        host: hostSni || (options.keepOriginalHost ? node.host : ''),
+        sni: hostSni || (options.keepOriginalHost ? node.sni : ''),
         tls: cdnProvider === 'cloudfront' ? true : node.tls,
         alpn: cdnProvider === 'cloudfront' ? 'http/1.1' : node.alpn,
       });
@@ -654,9 +648,7 @@ async function buildDedupHash(body) {
     namePrefix: String(body.namePrefix || '').trim(),
     keepOriginalHost: body.keepOriginalHost !== false,
     cdnProvider: body.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare',
-    cloudfrontHost: String(body.cloudfrontHost || '').trim().toLowerCase(),
-    customHost: String(body.customHost || '').trim(),
-    customSni: String(body.customSni || '').trim(),
+    hostSni: String(body.hostSni || '').trim().toLowerCase(),
   };
   return sha256Hex(JSON.stringify(normalized));
 }
@@ -676,18 +668,16 @@ async function handleGenerate(request, env, url) {
   if (!preferredEndpoints.length) return json({ ok: false, error: '没有识别到可用优选地址' }, 400);
 
   const cdnProvider = body.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
-  const cloudfrontHost = String(body.cloudfrontHost || '').trim().toLowerCase().replace(/\.$/, '');
-  if (cdnProvider === 'cloudfront' && !/^[a-z0-9.-]+\.[a-z0-9-]+$/.test(cloudfrontHost)) {
-    return json({ ok: false, error: 'AWS CloudFront 模式需要填写合法的 Distribution 域名或已绑定的自定义域名' }, 400);
+  const hostSni = String(body.hostSni || '').trim().toLowerCase().replace(/\.$/, '');
+  if (hostSni && !/^[a-z0-9.-]+\.[a-z0-9-]+$/.test(hostSni)) {
+    return json({ ok: false, error: '请填写合法的 Host / SNI 域名' }, 400);
   }
 
   const options = {
     namePrefix: body.namePrefix || '',
     keepOriginalHost: body.keepOriginalHost !== false,
     cdnProvider,
-    cloudfrontHost,
-    customHost: body.customHost || '',
-    customSni: body.customSni || '',
+    hostSni,
   };
 
   const nodes = buildNodes(baseNodes, preferredEndpoints, options);
