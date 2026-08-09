@@ -147,19 +147,31 @@ export function parsePreferredEndpoints(inputText) {
 export function expandNodes(baseNodes, endpoints, options = {}) {
   const keepOriginalHost = options.keepOriginalHost !== false;
   const namePrefix = String(options.namePrefix || '').trim();
-  const cdnProvider = options.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
-  const hostSni = String(options.hostSni || '').trim();
+  const cdnProvider = ['cloudfront', 'argo'].includes(options.cdnProvider)
+    ? options.cdnProvider
+    : 'cloudflare';
+  const cloudfrontHost = String(options.cloudfrontHost || '').trim();
+  const argoVmessHost = String(options.argoVmessHost || '').trim();
+  const argoVlessHost = String(options.argoVlessHost || '').trim();
   const warnings = [];
   const expanded = [];
 
   baseNodes.forEach((baseNode) => {
     const originalTlsHost = getEffectiveTlsHost(baseNode);
-    if (keepOriginalHost && !hostSni && !originalTlsHost) {
+    if (cdnProvider === 'cloudflare' && keepOriginalHost && !originalTlsHost) {
       warnings.push(`节点「${baseNode.name}」缺少 Host/SNI/原始域名，替换成优选 IP 后可能无法握手。`);
     }
 
     endpoints.forEach((endpoint, index) => {
-      const port = cdnProvider === 'cloudfront' ? 443 : endpoint.port || baseNode.port;
+      const port = cdnProvider === 'cloudflare' ? endpoint.port || baseNode.port : 443;
+      const overrideHost =
+        cdnProvider === 'cloudfront'
+          ? cloudfrontHost
+          : cdnProvider === 'argo'
+            ? baseNode.type === 'vmess'
+              ? argoVmessHost
+              : argoVlessHost
+            : '';
       const label = endpoint.label || `${endpoint.host}:${port}`;
       const suffix = namePrefix ? `${namePrefix}-${index + 1}` : label;
       const clone = deepClone(baseNode);
@@ -181,12 +193,12 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
         }
       }
 
-      if (hostSni) {
-        clone.hostHeader = hostSni;
-        clone.sni = hostSni;
+      if (overrideHost) {
+        clone.hostHeader = overrideHost;
+        clone.sni = overrideHost;
       }
 
-      if (cdnProvider === 'cloudfront') {
+      if (cdnProvider !== 'cloudflare') {
         clone.tls = true;
         clone.security = 'tls';
         clone.alpn = ['http/1.1'];

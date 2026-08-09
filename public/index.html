@@ -68,20 +68,41 @@ cf.example.com:443#US-Edge"
               <select id="cdnProvider" name="cdnProvider">
                 <option value="cloudflare">Cloudflare</option>
                 <option value="cloudfront">AWS CloudFront</option>
+                <option value="argo">Cloudflare + Argo Tunnel</option>
               </select>
             </div>
-            <div>
-              <label for="hostSni">Host / SNI（可选）</label>
+            <div id="cloudfrontHostWrap" class="hidden">
+              <label for="cloudfrontHost">CloudFront Host / SNI</label>
               <input
-                id="hostSni"
-                name="hostSni"
+                id="cloudfrontHost"
+                name="cloudfrontHost"
                 type="text"
-                placeholder="留空则保留原节点域名"
+                placeholder="例如 dxxxxxxxxxxxxx.cloudfront.net"
+              />
+            </div>
+          </div>
+          <div id="argoHostsWrap" class="grid two-col compact hidden">
+            <div>
+              <label for="argoVmessHost">VMess Host / SNI</label>
+              <input
+                id="argoVmessHost"
+                name="argoVmessHost"
+                type="text"
+                placeholder="例如 argooci.example.com"
+              />
+            </div>
+            <div>
+              <label for="argoVlessHost">VLESS Host / SNI</label>
+              <input
+                id="argoVlessHost"
+                name="argoVlessHost"
+                type="text"
+                placeholder="例如 argovless.example.com"
               />
             </div>
           </div>
           <p id="cdnModeHint" class="hint">
-            填写后会覆盖生成节点的 Host / SNI；留空则保留原节点域名。
+            Cloudflare 模式保留原节点端口及 Host / SNI。
           </p>
 
           <div class="grid two-col compact">
@@ -106,8 +127,9 @@ cf.example.com:443#US-Edge"
           <ul>
             <li>不会帮你找优选 IP，只负责把你现成的优选 IP 替换进节点。</li>
             <li>生成的链接是“同一份节点内容”的不同导出格式，分别给不同客户端使用。</li>
-            <li>Cloudflare 和 CloudFront 均可指定 Host / SNI；留空时默认保留原节点域名。</li>
-            <li>CloudFront 模式会固定使用 443 端口、TLS 和 HTTP/1.1。</li>
+            <li>Cloudflare 模式保留原节点端口：VMess 443、VLESS 8443。</li>
+            <li>CloudFront 模式固定使用 443，并将 Host / SNI 替换为 CloudFront 域名。</li>
+            <li>Cloudflare + Argo 模式固定使用 443，并按协议替换为对应的隧道域名。</li>
             <li>订阅链接里的节点信息会通过服务端密钥加密，请不要把链接公开分享。</li>
           </ul>
 

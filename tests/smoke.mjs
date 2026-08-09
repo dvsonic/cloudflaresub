@@ -12,11 +12,15 @@ import {
 } from '../src/core.js';
 
 const vmess = 'vmess://ewogICJ2IjogIjIiLAogICJwcyI6ICJkZW1vLXdzLXRscyIsCiAgImFkZCI6ICJlZGdlLmV4YW1wbGUuY29tIiwKICAicG9ydCI6ICI0NDMiLAogICJpZCI6ICIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLAogICJzY3kiOiAiYXV0byIsCiAgIm5ldCI6ICJ3cyIsCiAgInRscyI6ICJ0bHMiLAogICJwYXRoIjogIi93cyIsCiAgImhvc3QiOiAiZWRnZS5leGFtcGxlLmNvbSIsCiAgInNuaSI6ICJlZGdlLmV4YW1wbGUuY29tIiwKICAiZnAiOiAiY2hyb21lIiwKICAiYWxwbiI6ICJoMixodHRwLzEuMSIKfQ==';
+const vless = 'vless://00000000-0000-4000-8000-000000000002@edge.example.com:8443?type=ws&security=tls&host=edge.example.com&sni=edge.example.com&path=%2Fws#demo-vless';
 
 const { nodes } = parseNodeLinks(vmess);
+const { nodes: vlessNodes } = parseNodeLinks(vless);
 assert.equal(nodes.length, 1);
 assert.equal(nodes[0].type, 'vmess');
 assert.equal(nodes[0].server, 'edge.example.com');
+assert.equal(vlessNodes[0].type, 'vless');
+assert.equal(vlessNodes[0].port, 8443);
 
 const { endpoints } = parsePreferredEndpoints('104.16.1.2#HK\n104.17.2.3:2053#US');
 assert.equal(endpoints.length, 2);
@@ -27,9 +31,17 @@ assert.equal(expanded.nodes[0].server, '104.16.1.2');
 assert.equal(expanded.nodes[0].hostHeader, 'edge.example.com');
 assert.equal(expanded.nodes[1].port, 2053);
 
+const cloudflareProtocols = expandNodes([...nodes, ...vlessNodes], endpoints.slice(0, 1), {
+  cdnProvider: 'cloudflare',
+  keepOriginalHost: true,
+});
+assert.equal(cloudflareProtocols.nodes[0].port, 443);
+assert.equal(cloudflareProtocols.nodes[1].port, 8443);
+assert.equal(cloudflareProtocols.nodes[1].hostHeader, 'edge.example.com');
+
 const cloudfront = expandNodes(nodes, endpoints.slice(0, 1), {
   cdnProvider: 'cloudfront',
-  hostSni: 'd2sncbn3whbq65.cloudfront.net',
+  cloudfrontHost: 'd2sncbn3whbq65.cloudfront.net',
   namePrefix: 'AWS',
 });
 assert.equal(cloudfront.nodes[0].server, '104.16.1.2');
@@ -38,19 +50,17 @@ assert.equal(cloudfront.nodes[0].hostHeader, 'd2sncbn3whbq65.cloudfront.net');
 assert.equal(cloudfront.nodes[0].sni, 'd2sncbn3whbq65.cloudfront.net');
 assert.deepEqual(cloudfront.nodes[0].alpn, ['http/1.1']);
 
-const cloudfrontDefaultHost = expandNodes(nodes, endpoints.slice(0, 1), {
-  cdnProvider: 'cloudfront',
-  keepOriginalHost: true,
+const tunneled = expandNodes([...nodes, ...vlessNodes], endpoints.slice(0, 1), {
+  cdnProvider: 'argo',
+  argoVmessHost: 'argooci.iconliu.dpdns.org',
+  argoVlessHost: 'argovless.iconliu.dpdns.org',
 });
-assert.equal(cloudfrontDefaultHost.nodes[0].hostHeader, 'edge.example.com');
-assert.equal(cloudfrontDefaultHost.nodes[0].sni, 'edge.example.com');
-
-const tunneled = expandNodes(nodes, endpoints.slice(0, 1), {
-  keepOriginalHost: true,
-  hostSni: 'argooci.iconliu.dpdns.org',
-});
+assert.equal(tunneled.nodes[0].port, 443);
 assert.equal(tunneled.nodes[0].hostHeader, 'argooci.iconliu.dpdns.org');
 assert.equal(tunneled.nodes[0].sni, 'argooci.iconliu.dpdns.org');
+assert.equal(tunneled.nodes[1].port, 443);
+assert.equal(tunneled.nodes[1].hostHeader, 'argovless.iconliu.dpdns.org');
+assert.equal(tunneled.nodes[1].sni, 'argovless.iconliu.dpdns.org');
 
 const raw = renderRawSubscription(expanded.nodes);
 assert.ok(raw.length > 10);

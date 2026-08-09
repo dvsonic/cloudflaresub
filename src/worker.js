@@ -144,12 +144,24 @@ function parseRawLinks(input) {
 function buildNodes(baseNodes, preferredEndpoints, options = {}) {
   const output = [];
   const prefix = (options.namePrefix || '').trim();
-  const cdnProvider = options.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
-  const hostSni = String(options.hostSni || '').trim();
+  const cdnProvider = ['cloudfront', 'argo'].includes(options.cdnProvider)
+    ? options.cdnProvider
+    : 'cloudflare';
+  const cloudfrontHost = String(options.cloudfrontHost || '').trim();
+  const argoVmessHost = String(options.argoVmessHost || '').trim();
+  const argoVlessHost = String(options.argoVlessHost || '').trim();
   let counter = 0;
   for (const node of baseNodes) {
     for (const ep of preferredEndpoints) {
       counter += 1;
+      const overrideHost =
+        cdnProvider === 'cloudfront'
+          ? cloudfrontHost
+          : cdnProvider === 'argo'
+            ? node.type === 'vmess'
+              ? argoVmessHost
+              : argoVlessHost
+            : '';
       const nameParts = [];
       if (node.name) nameParts.push(node.name);
       if (prefix) nameParts.push(prefix);
@@ -159,11 +171,11 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
         ...node,
         name: nameParts.join(' | '),
         server: ep.server,
-        port: cdnProvider === 'cloudfront' ? 443 : ep.port || node.port,
-        host: hostSni || (options.keepOriginalHost ? node.host : ''),
-        sni: hostSni || (options.keepOriginalHost ? node.sni : ''),
-        tls: cdnProvider === 'cloudfront' ? true : node.tls,
-        alpn: cdnProvider === 'cloudfront' ? 'http/1.1' : node.alpn,
+        port: cdnProvider === 'cloudflare' ? ep.port || node.port : 443,
+        host: overrideHost || (options.keepOriginalHost ? node.host : ''),
+        sni: overrideHost || (options.keepOriginalHost ? node.sni : ''),
+        tls: cdnProvider === 'cloudflare' ? node.tls : true,
+        alpn: cdnProvider === 'cloudflare' ? node.alpn : 'http/1.1',
       });
     }
   }
@@ -642,13 +654,18 @@ async function sha256Hex(input) {
 }
 
 async function buildDedupHash(body) {
+  const cdnProvider = ['cloudfront', 'argo'].includes(body.cdnProvider)
+    ? body.cdnProvider
+    : 'cloudflare';
   const normalized = {
     nodeLinks: normalizeLines(body.nodeLinks || ''),
     preferredIps: normalizeLines(body.preferredIps || ''),
     namePrefix: String(body.namePrefix || '').trim(),
     keepOriginalHost: body.keepOriginalHost !== false,
-    cdnProvider: body.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare',
-    hostSni: String(body.hostSni || '').trim().toLowerCase(),
+    cdnProvider,
+    cloudfrontHost: String(body.cloudfrontHost || '').trim().toLowerCase(),
+    argoVmessHost: String(body.argoVmessHost || '').trim().toLowerCase(),
+    argoVlessHost: String(body.argoVlessHost || '').trim().toLowerCase(),
   };
   return sha256Hex(JSON.stringify(normalized));
 }
@@ -667,17 +684,32 @@ async function handleGenerate(request, env, url) {
   if (!baseNodes.length) return json({ ok: false, error: '没有识别到可用节点' }, 400);
   if (!preferredEndpoints.length) return json({ ok: false, error: '没有识别到可用优选地址' }, 400);
 
-  const cdnProvider = body.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
-  const hostSni = String(body.hostSni || '').trim().toLowerCase().replace(/\.$/, '');
-  if (hostSni && !/^[a-z0-9.-]+\.[a-z0-9-]+$/.test(hostSni)) {
-    return json({ ok: false, error: '请填写合法的 Host / SNI 域名' }, 400);
+  const cdnProvider = ['cloudfront', 'argo'].includes(body.cdnProvider)
+    ? body.cdnProvider
+    : 'cloudflare';
+  const normalizeHost = (value) => String(value || '').trim().toLowerCase().replace(/\.$/, '');
+  const isValidHost = (value) => /^[a-z0-9.-]+\.[a-z0-9-]+$/.test(value);
+  const cloudfrontHost = normalizeHost(body.cloudfrontHost);
+  const argoVmessHost = normalizeHost(body.argoVmessHost);
+  const argoVlessHost = normalizeHost(body.argoVlessHost);
+
+  if (cdnProvider === 'cloudfront' && !isValidHost(cloudfrontHost)) {
+    return json({ ok: false, error: 'AWS CloudFront 模式需要填写合法的 Host / SNI 域名' }, 400);
+  }
+  if (cdnProvider === 'argo' && (!isValidHost(argoVmessHost) || !isValidHost(argoVlessHost))) {
+    return json({ ok: false, error: 'Cloudflare + Argo 模式需要填写合法的 VMess 和 VLESS 域名' }, 400);
+  }
+  if (cdnProvider === 'argo' && baseNodes.some((node) => !['vmess', 'vless'].includes(node.type))) {
+    return json({ ok: false, error: 'Cloudflare + Argo 模式目前仅支持 VMess 和 VLESS 节点' }, 400);
   }
 
   const options = {
     namePrefix: body.namePrefix || '',
     keepOriginalHost: body.keepOriginalHost !== false,
     cdnProvider,
-    hostSni,
+    cloudfrontHost,
+    argoVmessHost,
+    argoVlessHost,
   };
 
   const nodes = buildNodes(baseNodes, preferredEndpoints, options);

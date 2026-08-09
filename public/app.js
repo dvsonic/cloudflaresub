@@ -5,7 +5,11 @@ const resultSection = document.getElementById('resultSection');
 const warningBox = document.getElementById('warningBox');
 const previewBody = document.getElementById('previewBody');
 const cdnProvider = document.getElementById('cdnProvider');
-const hostSni = document.getElementById('hostSni');
+const cloudfrontHost = document.getElementById('cloudfrontHost');
+const cloudfrontHostWrap = document.getElementById('cloudfrontHostWrap');
+const argoHostsWrap = document.getElementById('argoHostsWrap');
+const argoVmessHost = document.getElementById('argoVmessHost');
+const argoVlessHost = document.getElementById('argoVlessHost');
 const keepOriginalHost = document.getElementById('keepOriginalHost');
 const cdnModeHint = document.getElementById('cdnModeHint');
 
@@ -39,7 +43,9 @@ fillDemoBtn.addEventListener('click', () => {
   document.getElementById('preferredIps').value = demoIps;
   document.getElementById('namePrefix').value = 'CF';
   cdnProvider.value = 'cloudflare';
-  hostSni.value = '';
+  cloudfrontHost.value = '';
+  argoVmessHost.value = '';
+  argoVlessHost.value = '';
   keepOriginalHost.checked = true;
   updateCdnMode();
 });
@@ -59,7 +65,9 @@ form.addEventListener('submit', async (event) => {
     namePrefix: document.getElementById('namePrefix').value,
     keepOriginalHost: keepOriginalHost.checked,
     cdnProvider: cdnProvider.value,
-    hostSni: hostSni.value,
+    cloudfrontHost: cloudfrontHost.value,
+    argoVmessHost: argoVmessHost.value,
+    argoVlessHost: argoVlessHost.value,
   };
 
   submitBtn.disabled = true;
@@ -121,9 +129,22 @@ form.addEventListener('submit', async (event) => {
 
 function updateCdnMode() {
   const isCloudFront = cdnProvider.value === 'cloudfront';
-  cdnModeHint.textContent = isCloudFront
-    ? '填写后会覆盖 Host / SNI；留空则保留原节点域名。CloudFront 模式固定使用 443、TLS 和 http/1.1。'
-    : '填写后会覆盖 Host / SNI；留空则按下方选项保留原节点域名。';
+  const isArgo = cdnProvider.value === 'argo';
+
+  cloudfrontHostWrap.classList.toggle('hidden', !isCloudFront);
+  argoHostsWrap.classList.toggle('hidden', !isArgo);
+  cloudfrontHost.required = isCloudFront;
+  argoVmessHost.required = isArgo;
+  argoVlessHost.required = isArgo;
+  keepOriginalHost.disabled = isCloudFront || isArgo;
+
+  if (isCloudFront) {
+    cdnModeHint.textContent = '固定使用 443、TLS 和 http/1.1，并将 Host / SNI 替换为 CloudFront 域名。';
+  } else if (isArgo) {
+    cdnModeHint.textContent = '固定使用 443、TLS 和 http/1.1，并按 VMess / VLESS 分别使用对应的 Argo 域名。';
+  } else {
+    cdnModeHint.textContent = '保留原节点端口及 Host / SNI，适用于 VMess 443、VLESS 8443 的现有配置。';
+  }
 }
 
 document.addEventListener('click', async (event) => {
