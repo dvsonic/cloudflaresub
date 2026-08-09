@@ -146,6 +146,8 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
   const prefix = (options.namePrefix || '').trim();
   const cdnProvider = options.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
   const cloudfrontHost = String(options.cloudfrontHost || '').trim();
+  const customHost = String(options.customHost || '').trim();
+  const customSni = String(options.customSni || customHost).trim();
   let counter = 0;
   for (const node of baseNodes) {
     for (const ep of preferredEndpoints) {
@@ -160,8 +162,12 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
         name: nameParts.join(' | '),
         server: ep.server,
         port: cdnProvider === 'cloudfront' ? 443 : ep.port || node.port,
-        host: cdnProvider === 'cloudfront' ? cloudfrontHost : options.keepOriginalHost ? node.host : '',
-        sni: cdnProvider === 'cloudfront' ? cloudfrontHost : options.keepOriginalHost ? node.sni : '',
+        host:
+          customHost ||
+          (cdnProvider === 'cloudfront' ? cloudfrontHost : options.keepOriginalHost ? node.host : ''),
+        sni:
+          customSni ||
+          (cdnProvider === 'cloudfront' ? cloudfrontHost : options.keepOriginalHost ? node.sni : ''),
         tls: cdnProvider === 'cloudfront' ? true : node.tls,
         alpn: cdnProvider === 'cloudfront' ? 'http/1.1' : node.alpn,
       });
@@ -649,6 +655,8 @@ async function buildDedupHash(body) {
     keepOriginalHost: body.keepOriginalHost !== false,
     cdnProvider: body.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare',
     cloudfrontHost: String(body.cloudfrontHost || '').trim().toLowerCase(),
+    customHost: String(body.customHost || '').trim(),
+    customSni: String(body.customSni || '').trim(),
   };
   return sha256Hex(JSON.stringify(normalized));
 }
@@ -678,6 +686,8 @@ async function handleGenerate(request, env, url) {
     keepOriginalHost: body.keepOriginalHost !== false,
     cdnProvider,
     cloudfrontHost,
+    customHost: body.customHost || '',
+    customSni: body.customSni || '',
   };
 
   const nodes = buildNodes(baseNodes, preferredEndpoints, options);

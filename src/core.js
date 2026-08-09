@@ -149,12 +149,14 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
   const namePrefix = String(options.namePrefix || '').trim();
   const cdnProvider = options.cdnProvider === 'cloudfront' ? 'cloudfront' : 'cloudflare';
   const cloudfrontHost = String(options.cloudfrontHost || '').trim();
+  const customHost = String(options.customHost || '').trim();
+  const customSni = String(options.customSni || customHost).trim();
   const warnings = [];
   const expanded = [];
 
   baseNodes.forEach((baseNode) => {
     const originalTlsHost = getEffectiveTlsHost(baseNode);
-    if (cdnProvider === 'cloudflare' && keepOriginalHost && !originalTlsHost) {
+    if (cdnProvider === 'cloudflare' && keepOriginalHost && !customHost && !customSni && !originalTlsHost) {
       warnings.push(`节点「${baseNode.name}」缺少 Host/SNI/原始域名，替换成优选 IP 后可能无法握手。`);
     }
 
@@ -185,6 +187,13 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
         if (!baseNode.hostHeader || baseNode.hostHeader === baseNode.originalServer) {
           clone.hostHeader = endpoint.host;
         }
+      }
+
+      if (customHost) {
+        clone.hostHeader = customHost;
+      }
+      if (customSni) {
+        clone.sni = customSni;
       }
 
       expanded.push(clone);

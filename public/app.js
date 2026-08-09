@@ -42,6 +42,8 @@ fillDemoBtn.addEventListener('click', () => {
   cdnProvider.value = 'cloudflare';
   cloudfrontHost.value = '';
   keepOriginalHost.checked = true;
+  document.getElementById('customHost').value = '';
+  document.getElementById('customSni').value = '';
   updateCdnMode();
 });
 
@@ -61,6 +63,8 @@ form.addEventListener('submit', async (event) => {
     keepOriginalHost: keepOriginalHost.checked,
     cdnProvider: cdnProvider.value,
     cloudfrontHost: cloudfrontHost.value,
+    customHost: document.getElementById('customHost').value,
+    customSni: document.getElementById('customSni').value,
   };
 
   submitBtn.disabled = true;

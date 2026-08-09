@@ -38,6 +38,13 @@ assert.equal(cloudfront.nodes[0].hostHeader, 'd2sncbn3whbq65.cloudfront.net');
 assert.equal(cloudfront.nodes[0].sni, 'd2sncbn3whbq65.cloudfront.net');
 assert.deepEqual(cloudfront.nodes[0].alpn, ['http/1.1']);
 
+const tunneled = expandNodes(nodes, endpoints.slice(0, 1), {
+  keepOriginalHost: true,
+  customHost: 'argooci.iconliu.dpdns.org',
+});
+assert.equal(tunneled.nodes[0].hostHeader, 'argooci.iconliu.dpdns.org');
+assert.equal(tunneled.nodes[0].sni, 'argooci.iconliu.dpdns.org');
+
 const raw = renderRawSubscription(expanded.nodes);
 assert.ok(raw.length > 10);
 
