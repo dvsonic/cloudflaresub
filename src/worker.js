@@ -167,20 +167,23 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
       if (prefix) nameParts.push(prefix);
       if (ep.remark) nameParts.push(ep.remark);
       else nameParts.push(String(counter));
+      const port = resolvePublicPort(cdnProvider, node, ep.port);
       output.push({
         ...node,
         name: nameParts.join(' | '),
         server: ep.server,
-        port: resolvePublicPort(cdnProvider, node, ep.port),
+        port,
         host: overrideHost || (options.keepOriginalHost ? node.host : ''),
         sni: overrideHost || (options.keepOriginalHost ? node.sni : ''),
-        tls: cdnProvider === 'cloudflare' ? node.tls : true,
+        tls: resolveTls(cdnProvider, node, port),
         alpn: cdnProvider === 'cloudflare' ? node.alpn : 'http/1.1',
       });
     }
   }
   return output;
 }
+
+const CLOUDFLARE_HTTPS_PORTS = new Set([443, 2053, 2083, 2087, 2096, 8443]);
 
 function resolvePublicPort(cdnProvider, node, endpointPort) {
   if (cdnProvider !== 'cloudflare') {
@@ -190,6 +193,13 @@ function resolvePublicPort(cdnProvider, node, endpointPort) {
     return endpointPort;
   }
   return node.type === 'vless' ? 8443 : 443;
+}
+
+function resolveTls(cdnProvider, node, port) {
+  if (cdnProvider !== 'cloudflare' || node.tls) {
+    return true;
+  }
+  return CLOUDFLARE_HTTPS_PORTS.has(Number(port));
 }
 
 function encodeVmess(node) {

@@ -43,12 +43,18 @@ const backendVmess = structuredClone(nodes[0]);
 const backendVless = structuredClone(vlessNodes[0]);
 backendVmess.port = 10001;
 backendVless.port = 10002;
+backendVmess.tls = false;
+backendVless.tls = false;
+backendVmess.security = '';
+backendVless.security = '';
 const cloudflareBackendPorts = expandNodes([backendVmess, backendVless], endpoints.slice(0, 1), {
   cdnProvider: 'cloudflare',
   keepOriginalHost: true,
 });
 assert.equal(cloudflareBackendPorts.nodes[0].port, 443);
+assert.equal(cloudflareBackendPorts.nodes[0].tls, true);
 assert.equal(cloudflareBackendPorts.nodes[1].port, 8443);
+assert.equal(cloudflareBackendPorts.nodes[1].tls, true);
 
 const cloudfront = expandNodes(nodes, endpoints.slice(0, 1), {
   cdnProvider: 'cloudfront',

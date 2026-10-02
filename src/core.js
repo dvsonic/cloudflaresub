@@ -202,6 +202,11 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
         clone.tls = true;
         clone.security = 'tls';
         clone.alpn = ['http/1.1'];
+      } else if (resolveTls(cdnProvider, baseNode, port)) {
+        clone.tls = true;
+        if (!clone.security || clone.security === 'none') {
+          clone.security = 'tls';
+        }
       }
 
       expanded.push(clone);
@@ -922,6 +927,8 @@ function buildSingBoxTransport(node) {
   return null;
 }
 
+const CLOUDFLARE_HTTPS_PORTS = new Set([443, 2053, 2083, 2087, 2096, 8443]);
+
 function resolvePublicPort(cdnProvider, node, endpointPort) {
   if (cdnProvider !== 'cloudflare') {
     return 443;
@@ -930,6 +937,13 @@ function resolvePublicPort(cdnProvider, node, endpointPort) {
     return endpointPort;
   }
   return node.type === 'vless' ? 8443 : 443;
+}
+
+function resolveTls(cdnProvider, node, port) {
+  if (cdnProvider !== 'cloudflare' || node.tls) {
+    return true;
+  }
+  return CLOUDFLARE_HTTPS_PORTS.has(Number(port));
 }
 
 function buildNodeName(baseName, suffix) {
