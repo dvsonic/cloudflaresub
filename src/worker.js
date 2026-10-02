@@ -733,21 +733,20 @@ async function handleGenerate(request, env, url) {
 
   const dedupHash = await buildDedupHash(body);
   const dedupKey = `dedup:${dedupHash}`;
+  const ttl = 60 * 60 * 24 * 7; // 7天
 
   let id = await env.SUB_STORE.get(dedupKey);
-
+  const deduplicated = Boolean(id);
   if (!id) {
     id = await createUniqueShortId(env);
-    const ttl = 60 * 60 * 24 * 7; // 7天
-
-    await env.SUB_STORE.put(`sub:${id}`, JSON.stringify(payload), {
-      expirationTtl: ttl,
-    });
-
-    await env.SUB_STORE.put(dedupKey, id, {
-      expirationTtl: ttl,
-    });
   }
+
+  await env.SUB_STORE.put(`sub:${id}`, JSON.stringify(payload), {
+    expirationTtl: ttl,
+  });
+  await env.SUB_STORE.put(dedupKey, id, {
+    expirationTtl: ttl,
+  });
 
   const origin = url.origin;
   const accessToken = env.SUB_ACCESS_TOKEN || '';
@@ -761,7 +760,7 @@ async function handleGenerate(request, env, url) {
   const result = {
     ok: true,
     storage: 'kv',
-    deduplicated: true,
+    deduplicated,
     shortId: id,
     urls: {
       auto: withToken(''),
