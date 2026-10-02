@@ -143,7 +143,7 @@ function updateCdnMode() {
   } else if (isArgo) {
     cdnModeHint.textContent = '固定使用 443、TLS 和 http/1.1，并按 VMess / VLESS 分别使用对应的 Argo 域名。';
   } else {
-    cdnModeHint.textContent = '保留原节点端口及 Host / SNI，适用于 VMess 443、VLESS 8443 的现有配置。';
+    cdnModeHint.textContent = '按协议使用端口：VMess 443、VLESS 8443，并保留原节点 Host / SNI。';
   }
 }
 

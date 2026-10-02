@@ -163,7 +163,7 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
     }
 
     endpoints.forEach((endpoint, index) => {
-      const port = cdnProvider === 'cloudflare' ? endpoint.port || baseNode.port : 443;
+      const port = resolvePublicPort(cdnProvider, baseNode, endpoint.port);
       const overrideHost =
         cdnProvider === 'cloudfront'
           ? cloudfrontHost
@@ -920,6 +920,16 @@ function buildSingBoxTransport(node) {
     return transport;
   }
   return null;
+}
+
+function resolvePublicPort(cdnProvider, node, endpointPort) {
+  if (cdnProvider !== 'cloudflare') {
+    return 443;
+  }
+  if (endpointPort) {
+    return endpointPort;
+  }
+  return node.type === 'vless' ? 8443 : 443;
 }
 
 function buildNodeName(baseName, suffix) {

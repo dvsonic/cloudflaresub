@@ -102,7 +102,7 @@ cf.example.com:443#US-Edge"
             </div>
           </div>
           <p id="cdnModeHint" class="hint">
-            Cloudflare 模式保留原节点端口及 Host / SNI。
+            Cloudflare 模式按协议使用端口：VMess 443、VLESS 8443，并保留原节点 Host / SNI。
           </p>
 
           <div class="grid two-col compact">
@@ -127,7 +127,7 @@ cf.example.com:443#US-Edge"
           <ul>
             <li>不会帮你找优选 IP，只负责把你现成的优选 IP 替换进节点。</li>
             <li>生成的链接是“同一份节点内容”的不同导出格式，分别给不同客户端使用。</li>
-            <li>Cloudflare 模式保留原节点端口：VMess 443、VLESS 8443。</li>
+            <li>Cloudflare 模式按协议使用端口：VMess 443、VLESS 8443，后端端口不会写进订阅。</li>
             <li>CloudFront 模式固定使用 443，并将 Host / SNI 替换为 CloudFront 域名。</li>
             <li>Cloudflare + Argo 模式固定使用 443，并按协议替换为对应的隧道域名。</li>
             <li>订阅链接里的节点信息会通过服务端密钥加密，请不要把链接公开分享。</li>

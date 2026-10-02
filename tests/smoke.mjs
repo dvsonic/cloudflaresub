@@ -39,6 +39,17 @@ assert.equal(cloudflareProtocols.nodes[0].port, 443);
 assert.equal(cloudflareProtocols.nodes[1].port, 8443);
 assert.equal(cloudflareProtocols.nodes[1].hostHeader, 'edge.example.com');
 
+const backendVmess = structuredClone(nodes[0]);
+const backendVless = structuredClone(vlessNodes[0]);
+backendVmess.port = 10001;
+backendVless.port = 10002;
+const cloudflareBackendPorts = expandNodes([backendVmess, backendVless], endpoints.slice(0, 1), {
+  cdnProvider: 'cloudflare',
+  keepOriginalHost: true,
+});
+assert.equal(cloudflareBackendPorts.nodes[0].port, 443);
+assert.equal(cloudflareBackendPorts.nodes[1].port, 8443);
+
 const cloudfront = expandNodes(nodes, endpoints.slice(0, 1), {
   cdnProvider: 'cloudfront',
   cloudfrontHost: 'd2sncbn3whbq65.cloudfront.net',

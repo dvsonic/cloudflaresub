@@ -171,7 +171,7 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
         ...node,
         name: nameParts.join(' | '),
         server: ep.server,
-        port: cdnProvider === 'cloudflare' ? ep.port || node.port : 443,
+        port: resolvePublicPort(cdnProvider, node, ep.port),
         host: overrideHost || (options.keepOriginalHost ? node.host : ''),
         sni: overrideHost || (options.keepOriginalHost ? node.sni : ''),
         tls: cdnProvider === 'cloudflare' ? node.tls : true,
@@ -180,6 +180,16 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
     }
   }
   return output;
+}
+
+function resolvePublicPort(cdnProvider, node, endpointPort) {
+  if (cdnProvider !== 'cloudflare') {
+    return 443;
+  }
+  if (endpointPort) {
+    return endpointPort;
+  }
+  return node.type === 'vless' ? 8443 : 443;
 }
 
 function encodeVmess(node) {
